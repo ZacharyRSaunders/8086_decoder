@@ -4,12 +4,14 @@
 unsigned char *read_file(const char *filename, size_t *bytesRead) {
   // Open the file
   FILE *file;
+  printf("INFO: Opening %s\n", filename);
   file = fopen(filename, "rb");
   if (file == NULL) {
     perror("Error opening file");
     fclose(file);
     return NULL;
   }
+  printf("File Opened Successfully\n");
 
   // Get the file size by seeking to the end.
   size_t fileSize;
@@ -18,23 +20,24 @@ unsigned char *read_file(const char *filename, size_t *bytesRead) {
   rewind(file);
 
   // allocate a buffer to store the file contents.
-  unsigned char *buffer;
-  buffer = (unsigned char *)malloc(fileSize);
+  unsigned char *buffer = (unsigned char *)malloc(fileSize);
+  printf("INFO: Assigned buffer\n");
   if (buffer == NULL) {
-    perror("Memory allocation failed");
+    perror("Memory allocation failed\n");
     fclose(file);
     return NULL;
   }
 
   // Read the file contents into the buffer
-  *bytesRead = fread(&buffer, 1, fileSize, file);
-  if ((*bytesRead) != fileSize) {
-    perror("Error: File reading Error.\n");
+  size_t bytesRead1 = fread(buffer, 1, fileSize, file);
+  if (bytesRead1 != fileSize) {
+    perror("Error: File reading Error from me.\n");
     free(buffer);
     fclose(file);
     return NULL;
   }
-  printf("Read %zu bytes from the file\n", *bytesRead);
+  printf("Read %zu bytes from the file\n", bytesRead1);
+  *bytesRead = bytesRead1;
   fclose(file);
   return buffer;
 }
@@ -50,19 +53,14 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  printf("Number of args: %d\n", argc);
-
-  for (int i = 0; i < argc; i++) {
-    printf("Argument %d: %s\n", i, argv[i]);
-  }
-
-  size_t bytesRead;
+  size_t bytesRead = 0;
 
   unsigned char *buffer = read_file(filename, &bytesRead);
   if (buffer == NULL) {
     free(buffer);
     printf("Error: File read failed.");
   }
+  printf("Read %zu bytes from the file\n", bytesRead);
 
   // Example: Print the first few bytes
   for (size_t i = 0; i < bytesRead; i++) {
