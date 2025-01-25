@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// Opens a file and returns a buffer
 unsigned char *read_file(const char *filename, size_t *bytesRead) {
   // Open the file
   FILE *file;
@@ -42,7 +43,71 @@ unsigned char *read_file(const char *filename, size_t *bytesRead) {
   return buffer;
 }
 
-// Successfully read the file and process the data
+// Map bits to registers.  Checks the last 3 bits as per the 8067 instruction
+// manual.
+char *map_register(unsigned char reg, unsigned char wbit) {
+  if (wbit) {
+    switch (reg) {
+    case 0b00000000:
+      return "ax";
+      break;
+    case 0b00000001:
+      return "cx";
+      break;
+    case 0b00000010:
+      return "dx";
+      break;
+    case 0b00000011:
+      return "bx";
+      break;
+    case 0b00000100:
+      return "sp";
+      break;
+    case 0b00000101:
+      return "bp";
+      break;
+    case 0b00000110:
+      return "si";
+      break;
+    case 0b00000111:
+      return "di";
+      break;
+    default:
+      printf("Error\n");
+      return NULL;
+    }
+  } else {
+    switch (reg) {
+    case 0b00000000:
+      return "al";
+      break;
+    case 0b00000001:
+      return "cl";
+      break;
+    case 0b00000010:
+      return "dl";
+      break;
+    case 0b00000011:
+      return "bl";
+      break;
+    case 0b00000100:
+      return "ah";
+      break;
+    case 0b00000101:
+      return "ch";
+      break;
+    case 0b00000110:
+      return "dh";
+      break;
+    case 0b00000111:
+      return "bh";
+      break;
+    default:
+      printf("Error\n");
+      return NULL;
+    }
+  }
+}
 
 int main(int argc, char *argv[]) {
   // Read byte stream from filename passed by the arguments.
@@ -60,7 +125,6 @@ int main(int argc, char *argv[]) {
     free(buffer);
     printf("Error: File read failed.");
   }
-  printf("Read %zu bytes from the file\n", bytesRead);
 
   // Example: Print the first few bytes
   for (size_t i = 0; i < bytesRead; i++) {
@@ -73,146 +137,19 @@ int main(int argc, char *argv[]) {
 
     switch (opcode) {
     case 0b10001000:
-      printf("mov ");
-
+      printf("  ");
       // get the mod, reg and r/m bits
       size_t next_byte = i + 1;
       unsigned char mod_mask = 0b11000000;
       unsigned char mod = buffer[next_byte] & mod_mask;
       unsigned char reg_mask = 0b00111000;
       unsigned char reg = buffer[next_byte] & reg_mask;
+      unsigned char reg_shifted = reg >> 3;
       unsigned char rm_mask = 0b00000111;
       unsigned char rm = buffer[next_byte] & rm_mask;
 
-      switch (wbit) {
-      case 0b00000001:
-        switch (rm) {
-        case 0b00000000:
-          printf("ax");
-          break;
-        case 0b00000001:
-          printf("cx");
-          break;
-        case 0b00000010:
-          printf("dx");
-          break;
-        case 0b00000011:
-          printf("bx");
-          break;
-        case 0b00000100:
-          printf("sp");
-          break;
-        case 0b00000101:
-          printf("bp");
-          break;
-        case 0b00000110:
-          printf("si");
-          break;
-        case 0b00000111:
-          printf("di");
-          break;
-        default:
-          printf("Error\n");
-          free(buffer);
-          return 1;
-        }
-        printf(", ");
-        switch (reg) {
-        case 0b00000000:
-          printf("ax");
-          break;
-        case 0b00001000:
-          printf("cx");
-          break;
-        case 0b00010000:
-          printf("dx");
-          break;
-        case 0b00011000:
-          printf("bx");
-          break;
-        case 0b00100000:
-          printf("sp");
-          break;
-        case 0b00101000:
-          printf("bp");
-          break;
-        case 0b00110000:
-          printf("si");
-          break;
-        case 0b00111000:
-          printf("di");
-          break;
-        default:
-          printf("Error\n");
-          free(buffer);
-          return 1;
-        }
-        printf("\n");
-        break;
-      default:
-        switch (rm) {
-        case 0b00000000:
-          printf("al");
-          break;
-        case 0b00000001:
-          printf("cl");
-          break;
-        case 0b00000010:
-          printf("dl");
-          break;
-        case 0b00000011:
-          printf("bl");
-          break;
-        case 0b00000100:
-          printf("ah");
-          break;
-        case 0b00000101:
-          printf("ch");
-          break;
-        case 0b00000110:
-          printf("dh");
-          break;
-        case 0b00000111:
-          printf("bh");
-          break;
-        default:
-          printf("Error\n");
-          free(buffer);
-          return 1;
-        }
-        printf(", ");
-        switch (reg) {
-        case 0b00000000:
-          printf("al");
-          break;
-        case 0b00001000:
-          printf("cl");
-          break;
-        case 0b00010000:
-          printf("dl");
-          break;
-        case 0b00011000:
-          printf("bl");
-          break;
-        case 0b00100000:
-          printf("ah");
-          break;
-        case 0b00101000:
-          printf("ch");
-          break;
-        case 0b00110000:
-          printf("dh");
-          break;
-        case 0b00111000:
-          printf("bh");
-          break;
-        default:
-          printf("Error\n");
-          free(buffer);
-          return 1;
-        }
-        printf("\n");
-      }
+      printf("mov %s, %s\n", map_register(reg_shifted, wbit),
+             map_register(rm, wbit));
       i++;
       break;
     default:
@@ -222,15 +159,7 @@ int main(int argc, char *argv[]) {
   }
   printf("\n");
 
-  // Loop through the bytes and decode each one.
-  // for (size_t i = 0; i < bytesRead; i++) {
-  //   if printf ("%b ", buffer[i])
-  //     ;
-  // }
-
-  // Create some sort of switch for each combination of bits.
-
-  // clean unsigned
+  // clean up
   free(buffer);
   return 0;
 }
