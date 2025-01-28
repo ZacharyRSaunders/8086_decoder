@@ -46,7 +46,7 @@ unsigned char *read_file(const char *filename, size_t *bytesRead) {
 // Map bits to registers.  Checks the last 3 bits as per the 8067 instruction
 // manual.
 char *map_register(unsigned char reg, unsigned char wbit) {
-  if (wbit) {
+  if (wbit == 0b00000001) {
     switch (reg) {
     case 0b00000000:
       return "ax";
@@ -128,33 +128,78 @@ int main(int argc, char *argv[]) {
 
   // Example: Print the first few bytes
   for (size_t i = 0; i < bytesRead; i++) {
-    // Get all the different parts of the first byte
-    unsigned char opcode_mask = 0b11111100;
-    unsigned char opcode = buffer[i] & opcode_mask;
+    // Get 4-bit op-codes
+    unsigned char opcode_mask_4bit = 0b11110000;
+    unsigned char opcode_4bit = buffer[i] & opcode_mask_4bit;
 
-    unsigned char wbit_mask = 0b00000001;
-    unsigned char wbit = buffer[i] & wbit_mask;
+    switch (opcode_4bit) {
+    case 0b10110000:
+      printf("INFO: Immediate To Register.\n");
+      unsigned char wbit_mask = 0b00001000;
+      unsigned char wbit = buffer[i] & wbit_mask >> 3;
+      unsigned char reg_mask = 0b00000111;
+      unsigned char reg = (buffer[i] & reg_mask);
 
+      switch (wbit) {
+      case 0b00000000:
+        printf("Data: %d", buffer[i + 1]);
+        printf("mov %s, %d\n", map_register(reg, wbit), buffer[i + 1]);
+        break;
+      case 0b00000001:
+        printf("Data: %d", (buffer[i + 1] + buffer[i + 2]));
+        printf("mov %s, %d\n", map_register(reg, wbit),
+               (buffer[i + 1] + buffer[i + 2]));
+        break;
+      }
+
+    default:
+      break;
+    }
+
+    // Get 6-bit op-codes
+    unsigned char opcode_mask_6bit = 0b11111100;
+    unsigned char opcode = buffer[i] & opcode_mask_6bit;
+
+    // Check the op code.
     switch (opcode) {
     case 0b10001000:
+      // Page 4-20 in the 8086 manual.
       printf("  ");
       // get the mod, reg and r/m bits
-      size_t next_byte = i + 1;
+      unsigned char wbit_mask = 0b00000001;
+      unsigned char wbit = buffer[i] & wbit_mask;
       unsigned char mod_mask = 0b11000000;
-      unsigned char mod = buffer[next_byte] & mod_mask;
+      unsigned char mod = (buffer[i + 1] & mod_mask) >> 6;
       unsigned char reg_mask = 0b00111000;
-      unsigned char reg = buffer[next_byte] & reg_mask;
-      unsigned char reg_shifted = reg >> 3;
+      unsigned char reg = (buffer[i + 1] & reg_mask) >> 3;
       unsigned char rm_mask = 0b00000111;
-      unsigned char rm = buffer[next_byte] & rm_mask;
+      unsigned char rm = buffer[i + 1] & rm_mask;
+      unsigned char dbit_mask = 0b00000010;
+      unsigned char dbit = buffer[i] & rm_mask;
 
-      printf("mov %s, %s\n", map_register(reg_shifted, wbit),
-             map_register(rm, wbit));
-      i++;
+      // Check the mode for the mov
+      switch (mod) {
+      case 0b00000011:
+        printf("mov %s, %s\n", map_register(rm, wbit), map_register(reg, wbit));
+        i++;
+        break;
+      case 0b00000001:
+        printf("Not implemented\n");
+        i = i + 2;
+        break;
+      case 0b00000010:
+        printf("Not Implemented\n");
+        i = i + 3;
+        break;
+      case 0b00000000:
+        printf("Not Implemented\n");
+        i++;
+        break;
+      }
       break;
+
     default:
-      printf("Error: Opcode not implemented.");
-      free(buffer);
+      break;
     }
   }
   printf("\n");
