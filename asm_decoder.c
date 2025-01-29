@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -109,6 +110,70 @@ char *map_register(unsigned char reg, unsigned char wbit) {
   }
 }
 
+char *map_reg_mod00(unsigned char rm) {
+  switch (rm) {
+  case 0b00000000:
+    return "bx + si";
+    break;
+  case 0b00000001:
+    return "bx + di";
+    break;
+  case 0b00000010:
+    return "bp + si";
+    break;
+  case 0b00000011:
+    return "bp + di";
+    break;
+  case 0b00000100:
+    return "si";
+    break;
+  case 0b00000101:
+    return "di";
+    break;
+  case 0b00000110:
+    return "DIRECT ADDRESS";
+    break;
+  case 0b00000111:
+    return "bx";
+    break;
+  default:
+    printf("Error\n");
+    return NULL;
+  }
+}
+
+char *map_effadd(unsigned char rm) {
+  switch (rm) {
+  case 0b00000000:
+    return "bx + si";
+    break;
+  case 0b00000001:
+    return "bx + di";
+    break;
+  case 0b00000010:
+    return "bp + si";
+    break;
+  case 0b00000011:
+    return "bp + di";
+    break;
+  case 0b00000100:
+    return "si";
+    break;
+  case 0b00000101:
+    return "di";
+    break;
+  case 0b00000110:
+    return "bp";
+    break;
+  case 0b00000111:
+    return "bx";
+    break;
+  default:
+    printf("Error\n");
+    return NULL;
+  }
+}
+
 int main(int argc, char *argv[]) {
   // Read byte stream from filename passed by the arguments.
   const char *filename = argv[1];
@@ -134,21 +199,18 @@ int main(int argc, char *argv[]) {
 
     switch (opcode_4bit) {
     case 0b10110000:
-      printf("INFO: Immediate To Register.\n");
       unsigned char wbit_mask = 0b00001000;
-      unsigned char wbit = buffer[i] & wbit_mask >> 3;
+      unsigned char wbit = (buffer[i] & wbit_mask) >> 3;
       unsigned char reg_mask = 0b00000111;
       unsigned char reg = (buffer[i] & reg_mask);
 
       switch (wbit) {
       case 0b00000000:
-        printf("Data: %d", buffer[i + 1]);
         printf("mov %s, %d\n", map_register(reg, wbit), buffer[i + 1]);
         break;
       case 0b00000001:
-        printf("Data: %d", (buffer[i + 1] + buffer[i + 2]));
         printf("mov %s, %d\n", map_register(reg, wbit),
-               (buffer[i + 1] + buffer[i + 2]));
+               (((uint16_t)buffer[i + 2] << 8) | buffer[i + 1]));
         break;
       }
 
@@ -164,7 +226,6 @@ int main(int argc, char *argv[]) {
     switch (opcode) {
     case 0b10001000:
       // Page 4-20 in the 8086 manual.
-      printf("  ");
       // get the mod, reg and r/m bits
       unsigned char wbit_mask = 0b00000001;
       unsigned char wbit = buffer[i] & wbit_mask;
@@ -184,15 +245,18 @@ int main(int argc, char *argv[]) {
         i++;
         break;
       case 0b00000001:
-        printf("Not implemented\n");
+        printf("mov %s, [%s + %d]\n", map_register(reg, wbit), map_effadd(rm),
+               buffer[i + 2]);
         i = i + 2;
         break;
       case 0b00000010:
-        printf("Not Implemented\n");
+        printf("mov %s, [%s + %d]\n", map_register(reg, wbit), map_effadd(rm),
+               (((uint16_t)buffer[i + 3] << 8) | buffer[i + 2]));
         i = i + 3;
         break;
       case 0b00000000:
-        printf("Not Implemented\n");
+        printf("%b %b %b\n", buffer[i], buffer[i + 1], buffer[i + 2]);
+        printf("mov %s, [%s]\n", map_register(reg, wbit), map_effadd(rm));
         i++;
         break;
       }
