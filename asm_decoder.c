@@ -1,19 +1,44 @@
+#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+void plog(unsigned int level, char *message) {
+  if (level > 7) {
+    plog(3, "Log level must be an integer 0 through 7.");
+    return;
+  }
+  const char levels[8][7] = {"emerg",   "alert",  "crit", "err",
+                             "warning", "notice", "info", "debug"};
+  time_t now;
+  struct tm *local_time;
+
+  time(&now);
+
+  local_time = localtime(&now);
+
+  printf("%02d:%02d:%02d %s: %s\n", local_time->tm_hour, local_time->tm_min,
+         local_time->tm_sec, levels[level], message);
+}
 
 // Opens a file and returns a buffer
 unsigned char *read_file(const char *filename, size_t *bytesRead) {
   // Open the file
   FILE *file;
-  printf("INFO: Opening %s\n", filename);
+
+  char msg[256];
+  snprintf(msg, sizeof(msg), "Opening %s", filename);
+  plog(6, msg);
+
   file = fopen(filename, "rb");
   if (file == NULL) {
     perror("Error opening file");
     fclose(file);
     return NULL;
   }
-  printf("File Opened Successfully\n");
+  plog(6, "File Opened Successfully");
 
   // Get the file size by seeking to the end.
   size_t fileSize;
@@ -23,7 +48,7 @@ unsigned char *read_file(const char *filename, size_t *bytesRead) {
 
   // allocate a buffer to store the file contents.
   unsigned char *buffer = (unsigned char *)malloc(fileSize);
-  printf("INFO: Assigned buffer\n");
+  plog(6, "Assigned buffer");
   if (buffer == NULL) {
     perror("Memory allocation failed\n");
     fclose(file);
@@ -181,6 +206,10 @@ int main(int argc, char *argv[]) {
   if (argc > 2) {
     printf("Error: Too many argumnets. Only one is allowed\n");
     return 1;
+  }
+  char mes[256] = "Filename can not contain %";
+  if (strcspn(filename, "%") != strlen(filename)) {
+    plog(2, mes);
   }
 
   size_t bytesRead = 0;
