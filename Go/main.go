@@ -23,16 +23,29 @@ func main() {
 	fmt.Println("Decoding...")
 	n := len(buffer)
 	i := 0
-	for n >= i {
+	for n > i {
 		fmt.Printf("Index %d contains %b \n", i, buffer[i])
-		for _, value := range Encodings {
-			fmt.Println(value.opcode)
+		for _, encoding := range Encodings {
+      bitShift := 8 - encoding.identifiers[0].bitLength
+      if encoding.opcode == buffer[i] >> bitShift {
+        fmt.Printf("Opcode: %b\n", encoding.opcode)
+        i := i + indexShift
+      }
 		}
 		i += 1
 	}
 
 	// Close files
 	fmt.Println("Cleaning Up...")
+}
+
+func getRegister(w byte, reg byte) string {
+  for _, reg := range Registers {
+    if reg.w == w {
+      return reg.name
+    }
+  }
+  return ""
 }
 
 func readFile(filepath string) []byte {
@@ -49,4 +62,4 @@ func readFile(filepath string) []byte {
 	fmt.Printf("Read %d bytes from file.\n", bytesRead)
 
 	return buffer[:bytesRead]
-}
+   }
