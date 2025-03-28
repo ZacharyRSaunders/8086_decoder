@@ -8,6 +8,9 @@ type Identifier struct {
 type Encoding struct {
 	name        string
 	opcode      byte
+  bitShift    int
+  minLen      int
+  maxLen      *int
 	identifiers []Identifier
 	asmRep      string
 }
@@ -15,32 +18,29 @@ type Encoding struct {
 var Encodings []Encoding = []Encoding{
 	// MOV = Move
 	{
-		name: "Register/memory to/from register", opcode: 0b100010, asmRep: "mov",
+    name: "Register/memory to/from register", opcode: 0b100010, bitShift: 2,
+    asmRep: "mov", minLen: 2,
 		identifiers: []Identifier{
-			{"opcode", 0b11111100},
-			{"d", 0b00000010},
-			{"w", 0b00000001},
+      {"d", 0b00000010},
+      {"w", 0b00000001},
 			{"mod", 0b11000000},
 			{"reg", 0b00111000},
 			{"r/m", 0b00000111},
-			{"DISP-LO", 0b111111111},
-			{"DISP-HI", 0b111111111},
+      // Only add disp-lo/disp-hi if the mod calls for it
 		},
 	},
 	{
-		name: "Immediate to register/memory", opcode: 0b11000, asmRep: "mov",
+    name: "Immediate to register/memory", opcode: 0b11000, bitShift: 3,
+    asmRep: "mov", minLen: 3,
 		identifiers: []Identifier{
-			{"opcode", 0b11111000},
 			{"?", 0b00000100},
 			{"d", 0b00000010},
 			{"w", 0b00000001},
 			{"mod", 0b11000000},
 			{"reg", 0b00111000},
 			{"r/m", 0b00000111},
-			{"DISP-LO", 0b111111111},
-			{"DISP-HI", 0b111111111},
-			{"data", 0b111111111},
-			{"data if w=1", 0b111111111},
+			{"data", 0b00000000},
+      // only add data if w=1 if data exists and w=1
 		},
 	},
 }

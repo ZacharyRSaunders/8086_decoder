@@ -23,16 +23,16 @@ func main() {
 	fmt.Println("Decoding...")
 	n := len(buffer)
 	i := 0
+  instructionLen := 0
 	for n > i {
 		fmt.Printf("Index %d contains %b \n", i, buffer[i])
 		for _, encoding := range Encodings {
-      bitShift := 8 - encoding.identifiers[0].bitLength
-      if encoding.opcode == buffer[i] >> bitShift {
+      if encoding.opcode == buffer[i] >> encoding.bitShift {
+        instructionLen = encoding.minLen
         fmt.Printf("Opcode: %b\n", encoding.opcode)
-        i := i + indexShift
       }
 		}
-		i += 1
+		i += instructionLen
 	}
 
 	// Close files
