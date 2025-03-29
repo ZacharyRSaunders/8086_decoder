@@ -23,14 +23,33 @@ func main() {
 	fmt.Println("Decoding...")
 	n := len(buffer)
 	i := 0
-  instructionLen := 0
+	instructionLen := 0
 	for n > i {
 		fmt.Printf("Index %d contains %b \n", i, buffer[i])
 		for _, encoding := range Encodings {
-      if encoding.opcode == buffer[i] >> encoding.bitShift {
-        instructionLen = encoding.minLen
-        fmt.Printf("Opcode: %b\n", encoding.opcode)
-      }
+			if encoding.opcode == buffer[i]>>byte(encoding.identifiers[0].shift) {
+				instructionLen = encoding.minLen
+				identifiersDecoded, lengthMod := decodeInstruction(encoding.identifiers, buffer[i:i+8])
+				// TODO use length mod to determine if more data or displacement bytes were added
+
+				fmt.Printf("Opcode: %b, Instruction Length: %d\n", encoding.opcode, lengthMod)
+				for key, value := range identifiersDecoded {
+					fmt.Printf("Identifier: %s, Value: %b\n", key, value)
+				}
+
+				var suffix1, suffix2 string
+				_, ok := identifiersDecoded["reg"]
+				if ok {
+					suffix2 = getRegister(identifiersDecoded["w"], identifiersDecoded["reg"])
+				}
+				_, ok = identifiersDecoded["r/m"]
+				if ok {
+					if identifiersDecoded["mod"] == 0b11 {
+						suffix1 = getRegister(identifiersDecoded["w"], identifiersDecoded["r/m"])
+					}
+				}
+				fmt.Printf("%s %s, %s\n", encoding.asmRep, suffix1, suffix2)
+			}
 		}
 		i += instructionLen
 	}
@@ -39,13 +58,32 @@ func main() {
 	fmt.Println("Cleaning Up...")
 }
 
+func decodeInstruction(identifiers []Identifier, buffer []byte) (map[string]byte, int) {
+	// Determines instructions length and assigns values to the identifiers.
+	values := map[string]byte{}
+	for _, identifier := range identifiers {
+		value := buffer[identifier.byteIndex] & identifier.mask >> identifier.shift
+		values[identifier.name] = value
+		// TODO Add other modifiers for mod which will add disp-lo/disp-hi bytes to instructions
+		if identifier.name == "mod" {
+			if value == 0b11 {
+				fmt.Println("mod is 0b11")
+			}
+		}
+	}
+	instructionLen := 0
+	return values, instructionLen
+}
+
 func getRegister(w byte, reg byte) string {
-  for _, reg := range Registers {
-    if reg.w == w {
-      return reg.name
-    }
-  }
-  return ""
+	for _, r := range Registers {
+		if r.w == w {
+			if r.reg == reg {
+				return r.name
+			}
+		}
+	}
+	return ""
 }
 
 func readFile(filepath string) []byte {
@@ -62,4 +100,4 @@ func readFile(filepath string) []byte {
 	fmt.Printf("Read %d bytes from file.\n", bytesRead)
 
 	return buffer[:bytesRead]
-   }
+}
