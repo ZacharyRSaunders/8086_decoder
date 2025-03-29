@@ -28,7 +28,6 @@ var Encodings []Encoding = []Encoding{
 			{"mod", 0b11000000, 6, 1},
 			{"reg", 0b00111000, 3, 1},
 			{"r/m", 0b00000111, 0, 1},
-			// Only add disp-lo/disp-hi if the mod calls for it
 		},
 	},
 	{
@@ -43,6 +42,16 @@ var Encodings []Encoding = []Encoding{
 			{"reg", 0b00111000, 3, 1},
 			{"r/m", 0b00000111, 0, 1},
 			// only add data if w=1 if data exists and w=1
+		},
+	},
+	{
+		name: "Immediate to register", opcode: 0b1011,
+		asmRep: "mov", minLen: 2,
+		identifiers: []Identifier{
+			{"opcode", 0b11110000, 4, 0},
+			{"w", 0b00001000, 3, 0},
+			{"reg", 0b00000111, 0, 0},
+			{"data", 0b00000000, 0, 1},
 		},
 	},
 }
@@ -70,4 +79,20 @@ var Registers []Register = []Register{
 	{w: 0b1, reg: 0b101, name: "bp"},
 	{w: 0b1, reg: 0b110, name: "si"},
 	{w: 0b1, reg: 0b111, name: "di"},
+}
+
+type EffectiveAddr struct {
+	rm   byte
+	name string
+}
+
+var EffectiveAddress []EffectiveAddr = []EffectiveAddr{
+	{rm: 0b000, name: "bx + si"},
+	{rm: 0b001, name: "bx + di"},
+	{rm: 0b010, name: "bp + si"},
+	{rm: 0b011, name: "bp + di"},
+	{rm: 0b100, name: "si"},
+	{rm: 0b101, name: "di"},
+	{rm: 0b110, name: "bp"},
+	{rm: 0b111, name: "bx"},
 }

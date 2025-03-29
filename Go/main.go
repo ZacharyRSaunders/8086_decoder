@@ -16,8 +16,22 @@ func main() {
 	fmt.Printf("Reading File: %s\n", asm_file)
 	buffer := readFile(asm_file)
 
-	// Create file to write and open it.
+	// Create temp file to write and open it.
 	fmt.Printf("Writing to file: %s\n", destination)
+	tempFile, err := os.CreateTemp("./", fmt.Sprintf("%s-*.asm", destination))
+	if err != nil {
+		log.Fatalf("Failed to create temporary file: %v", err)
+	}
+	fileName := tempFile.Name()
+	fmt.Printf("Created temporary file: %s\n", fileName)
+	defer tempFile.Close()
+
+	// Add header text to file
+	if _, err := tempFile.Write([]byte("\nbits 16\n\n")); err != nil {
+		// Attempt to close before logging fatal, resource leak is less critical than crash
+		tempFile.Close()
+		log.Fatalf("Failed to write to temporary file %s: %v", fileName, err)
+	}
 
 	// Decode file
 	fmt.Println("Decoding...")
@@ -47,8 +61,25 @@ func main() {
 					if identifiersDecoded["mod"] == 0b11 {
 						suffix1 = getRegister(identifiersDecoded["w"], identifiersDecoded["r/m"])
 					}
+					if identifiersDecoded["mod"] == 0b00 {
+						if identifiersDecoded["r/m"] == 0b110 {
+							// Implement this
+							suffix1 = "DIRECT TO ADDRESS"
+						} else {
+							suffix1 = fmt.Sprintf("[%s]", getEffAddr(identifiersDecoded["r/m"]))
+						}
+					if identifiersDecoded["mod"] == 0b01 {
+						suffix1 = fmt.Sprintf("[%s + %d]", getEffAddr(identifiersDecoded["r/m"], identifiersDecoded["data"]))
+					}
 				}
-				fmt.Printf("%s %s, %s\n", encoding.asmRep, suffix1, suffix2)
+				instructionString := fmt.Sprintf("%s %s, %s\n", encoding.asmRep, suffix1, suffix2)
+				fmt.Print(instructionString)
+
+				if _, err := tempFile.Write([]byte(instructionString)); err != nil {
+					// Attempt to close before logging fatal, resource leak is less critical than crash
+					tempFile.Close()
+					log.Fatalf("Failed to write to temporary file %s: %v", fileName, err)
+				}
 			}
 		}
 		i += instructionLen
@@ -62,12 +93,29 @@ func decodeInstruction(identifiers []Identifier, buffer []byte) (map[string]byte
 	// Determines instructions length and assigns values to the identifiers.
 	values := map[string]byte{}
 	for _, identifier := range identifiers {
-		value := buffer[identifier.byteIndex] & identifier.mask >> identifier.shift
-		values[identifier.name] = value
+		var value byte
+		if identifier.mask == 0b00000000 {
+			value = buffer[identifier.byteIndex]
+			values[identifier.name] = value
+		} else {
+			value = buffer[identifier.byteIndex] & identifier.mask >> identifier.shift
+			values[identifier.name] = value
+		}
 		// TODO Add other modifiers for mod which will add disp-lo/disp-hi bytes to instructions
+		if identifier.name == "data" {
+			if values["w"] == 0b1 {
+				identifiers = append(identifiers, Identifier{"data if w = 1", 0b00000000, 0, identifier.byteIndex + 1})
+			}
+		}
 		if identifier.name == "mod" {
-			if value == 0b11 {
-				fmt.Println("mod is 0b11")
+			if value == 0b01 {
+				// 8bit displacement
+				identifiers = append(identifiers, Identifier{"disp-lo", 0b00000000, 0, 3})
+			}
+			if value == 0b10 {
+				// 16bit displacement
+				identifiers = append(identifiers, Identifier{"disp-lo", 0b00000000, 0, 3})
+				identifiers = append(identifiers, Identifier{"disp-hi", 0b00000000, 0, 4})
 			}
 		}
 	}
@@ -81,6 +129,15 @@ func getRegister(w byte, reg byte) string {
 			if r.reg == reg {
 				return r.name
 			}
+		}
+	}
+	return ""
+}
+
+func getEffAddr(rm byte) string {
+	for _, r := range EffectiveAddress {
+		if r.rm == rm {
+			return r.name
 		}
 	}
 	return ""
