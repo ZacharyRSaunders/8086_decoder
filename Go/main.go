@@ -54,25 +54,35 @@ func main() {
 				var suffix1, suffix2 string
 				_, ok := identifiersDecoded["reg"]
 				if ok {
-					suffix2 = getRegister(identifiersDecoded["w"], identifiersDecoded["reg"])
+					suffix1 = getRegister(identifiersDecoded["w"], identifiersDecoded["reg"])
 				}
 				_, ok = identifiersDecoded["r/m"]
 				if ok {
 					if identifiersDecoded["mod"] == 0b11 {
-						suffix1 = getRegister(identifiersDecoded["w"], identifiersDecoded["r/m"])
+						suffix2 = getRegister(identifiersDecoded["w"], identifiersDecoded["r/m"])
 					}
 					if identifiersDecoded["mod"] == 0b00 {
 						if identifiersDecoded["r/m"] == 0b110 {
 							// Implement this
-							suffix1 = "DIRECT TO ADDRESS"
+							suffix2 = "DIRECT TO ADDRESS"
 						} else {
-							suffix1 = fmt.Sprintf("[%s]", getEffAddr(identifiersDecoded["r/m"]))
+							suffix2 = fmt.Sprintf("[%s]", getEffAddr(identifiersDecoded["r/m"]))
 						}
+					}
 					if identifiersDecoded["mod"] == 0b01 {
-						suffix1 = fmt.Sprintf("[%s + %d]", getEffAddr(identifiersDecoded["r/m"], identifiersDecoded["data"]))
+						suffix2 = fmt.Sprintf("[%s + %d]", getEffAddr(identifiersDecoded["r/m"]), identifiersDecoded["data"])
+					}
+					if identifiersDecoded["mod"] == 0b10 {
+						suffix2 = fmt.Sprintf("[%s + %d]", getEffAddr(identifiersDecoded["r/m"]), (uint16(identifiersDecoded["data if w = 1"])<<8)|uint16(identifiersDecoded["data"]))
 					}
 				}
-				instructionString := fmt.Sprintf("%s %s, %s\n", encoding.asmRep, suffix1, suffix2)
+
+				var instructionString string
+				if identifiersDecoded["d"] == 0 {
+					instructionString = fmt.Sprintf("%s %s, %s\n", encoding.asmRep, suffix2, suffix1)
+				} else {
+					instructionString = fmt.Sprintf("%s %s, %s\n", encoding.asmRep, suffix1, suffix2)
+				}
 				fmt.Print(instructionString)
 
 				if _, err := tempFile.Write([]byte(instructionString)); err != nil {
