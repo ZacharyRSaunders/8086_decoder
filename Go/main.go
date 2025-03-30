@@ -42,48 +42,8 @@ func main() {
 		fmt.Printf("Index %d contains %b \n", i, buffer[i])
 		for _, encoding := range Encodings {
 			if encoding.opcode == buffer[i]>>byte(encoding.identifiers[0].shift) {
-				instructionLen = encoding.minLen
-				identifiersDecoded, lengthMod := decodeInstruction(encoding.identifiers, buffer[i:i+8])
-				// TODO use length mod to determine if more data or displacement bytes were added
-
-				fmt.Printf("Opcode: %b, Instruction Length: %d\n", encoding.opcode, lengthMod)
-				for key, value := range identifiersDecoded {
-					fmt.Printf("Identifier: %s, Value: %b\n", key, value)
-				}
-
-				var suffix1, suffix2 string
-				_, ok := identifiersDecoded["reg"]
-				if ok {
-					suffix1 = getRegister(identifiersDecoded["w"], identifiersDecoded["reg"])
-				}
-				_, ok = identifiersDecoded["r/m"]
-				if ok {
-					if identifiersDecoded["mod"] == 0b11 {
-						suffix2 = getRegister(identifiersDecoded["w"], identifiersDecoded["r/m"])
-					}
-					if identifiersDecoded["mod"] == 0b00 {
-						if identifiersDecoded["r/m"] == 0b110 {
-							// Implement this
-							suffix2 = "DIRECT TO ADDRESS"
-						} else {
-							suffix2 = fmt.Sprintf("[%s]", getEffAddr(identifiersDecoded["r/m"]))
-						}
-					}
-					if identifiersDecoded["mod"] == 0b01 {
-						suffix2 = fmt.Sprintf("[%s + %d]", getEffAddr(identifiersDecoded["r/m"]), identifiersDecoded["data"])
-					}
-					if identifiersDecoded["mod"] == 0b10 {
-						suffix2 = fmt.Sprintf("[%s + %d]", getEffAddr(identifiersDecoded["r/m"]), (uint16(identifiersDecoded["data if w = 1"])<<8)|uint16(identifiersDecoded["data"]))
-					}
-				}
-
 				var instructionString string
-				if identifiersDecoded["d"] == 0 {
-					instructionString = fmt.Sprintf("%s %s, %s\n", encoding.asmRep, suffix2, suffix1)
-				} else {
-					instructionString = fmt.Sprintf("%s %s, %s\n", encoding.asmRep, suffix1, suffix2)
-				}
-				fmt.Print(instructionString)
+				instructionString, instructionLen = getInstructionString(encoding, buffer[i:i+8])
 
 				if _, err := tempFile.Write([]byte(instructionString)); err != nil {
 					// Attempt to close before logging fatal, resource leak is less critical than crash
@@ -97,6 +57,51 @@ func main() {
 
 	// Close files
 	fmt.Println("Cleaning Up...")
+}
+
+func getInstructionString(encoding Encoding, buffer []byte) (string, int) {
+	instructionLen := encoding.minLen
+	identifiersDecoded, lengthMod := decodeInstruction(encoding.identifiers, buffer)
+	// TODO use length mod to determine if more data or displacement bytes were added
+
+	fmt.Printf("Opcode: %b, Instruction Length: %d\n", encoding.opcode, lengthMod)
+	for key, value := range identifiersDecoded {
+		fmt.Printf("Identifier: %s, Value: %b\n", key, value)
+	}
+
+	var suffix1, suffix2 string
+	_, ok := identifiersDecoded["reg"]
+	if ok {
+		suffix1 = getRegister(identifiersDecoded["w"], identifiersDecoded["reg"])
+	}
+	_, ok = identifiersDecoded["r/m"]
+	if ok {
+		if identifiersDecoded["mod"] == 0b11 {
+			suffix2 = getRegister(identifiersDecoded["w"], identifiersDecoded["r/m"])
+		}
+		if identifiersDecoded["mod"] == 0b00 {
+			if identifiersDecoded["r/m"] == 0b110 {
+				// Implement this
+				suffix2 = "DIRECT TO ADDRESS"
+			} else {
+				suffix2 = fmt.Sprintf("[%s]", getEffAddr(identifiersDecoded["r/m"]))
+			}
+		}
+		if identifiersDecoded["mod"] == 0b01 {
+			suffix2 = fmt.Sprintf("[%s + %d]", getEffAddr(identifiersDecoded["r/m"]), identifiersDecoded["data"])
+		}
+		if identifiersDecoded["mod"] == 0b10 {
+			suffix2 = fmt.Sprintf("[%s + %d]", getEffAddr(identifiersDecoded["r/m"]), (uint16(identifiersDecoded["data if w = 1"])<<8)|uint16(identifiersDecoded["data"]))
+		}
+	}
+
+	var instructionString string
+	if identifiersDecoded["d"] == 0 {
+		instructionString = fmt.Sprintf("%s %s, %s\n", encoding.asmRep, suffix2, suffix1)
+	} else {
+		instructionString = fmt.Sprintf("%s %s, %s\n", encoding.asmRep, suffix1, suffix2)
+	}
+	return instructionString, instructionLen
 }
 
 func decodeInstruction(identifiers []Identifier, buffer []byte) (map[string]byte, int) {
